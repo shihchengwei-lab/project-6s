@@ -1,0 +1,4 @@
+interface:
+  display_name: "專案 6S"
+  short_description: "整理程式庫、素材、文件與測試，保留最新有效現況並隔離必要封存"
+  default_prompt: "使用 $project-6s 整理目前專案，清除無用產物與過期脈絡，對齊現行文件並驗證結果。"
