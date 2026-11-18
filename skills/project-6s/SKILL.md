@@ -4,72 +4,78 @@ license: MIT
 description: "Use for 6S cleanup of a software project or its assets, documentation, or tests. Remove obsolete artifacts, update current documentation, and isolate required archives while preserving product behavior."
 ---
 
-# 專案 6S
+# Project 6S
 
-依使用者指定的範圍整理專案，讓接手者能從現行文件找到正式來源、執行必要操作。
+Clean up the requested scope so the next maintainer can find the authoritative sources and follow the current procedures.
 
-## 確認範圍
+Use the user's requested language for replies and reports. Otherwise, follow the language of the user's own messages. If they invoke the skill with its default prompt, use the language already established in the conversation. When updating existing project docs, keep each document's language unless the user asks to change it.
 
-- 讀協作規則，依文件用途選定核對版本，交代整理範圍、要維持的行為與驗證方式。
-- 有 Python 3.11 以上且儲存庫已有 Git 提交時，用 `python <腳本路徑> <儲存庫根目錄> --base <版本>` 執行[盤點腳本](scripts/inventory.py)。省略 `--base` 時使用掃描開始的提交。保存 `base_commit` 供重跑。
-- 盤點只產生觀察結果。各筆資料取自各自的讀取時點。以變更定位引用，逐項核對失效連結、相同內容與略過或讀取失敗的檔案。同內容檔案依各自用途決定去留。連結檢查需要 [Markdown 解析器](scripts/requirements.txt)，盤點標記未檢查時，補查受影響的文件。
-- 沿用既有建置、測試與資產清單。同類問題先處理並驗證一例，再套用到其餘項目。
-- 提交、推送、部署與發布依使用者指示執行。
+## Set the scope
 
-## 對齊專案文件
+- Read the project's collaboration rules. Choose the version the docs should describe and establish the cleanup scope, behavior to preserve, and verification steps.
+- If Python 3.11 or later is available and the repository has a Git commit, run [inventory](scripts/inventory.py) with `python <script-path> <repository-root> --base <revision>`. With no `--base`, it uses the commit current at the start of the scan. Keep the returned `base_commit` for reruns.
+- Inventory reports observations from individual reads. Use changes to locate references, then review broken links, duplicate content, and skipped or unreadable files. Judge duplicates by their role. Link checks require the [Markdown parser](scripts/requirements.txt). If inventory skips them, check the affected docs separately.
+- Use the project's existing builds, tests, and asset lists. Fix and verify one representative case before repeating the same change across the project.
+- Commit, push, deploy, or publish as directed by the user.
 
-- 整理整個專案時，盤點現行操作文件，從既有 README 開始，核對範圍內的安裝、使用、維護與設計說明及對應翻譯。只整理特定區域或提交前做 6S 時，檢查既有 README 和範圍內的文件是否描述受影響的行為。對齊範圍內已過期的說明，即使沒有新變更也適用。
-- 用文件應描述的版本核對內容。從實作、規格和驗證結果追查引用與文字轉述，並核對文件宣稱的用途、環境需求、指令、輸出、預設值與限制。修正差異，摘要與翻譯保留會改變判斷的條件。
-- 照文件執行受影響的代表操作，確認內容、連結與實際結果一致。仍待查證的項目列為未完成。
+## Align project documentation
 
-## 處理舊副本與產物
+- For a full cleanup, start from the README and review setup, usage, maintenance, and design docs within scope, including existing translations. For a scoped cleanup or a pre-commit check, review the README and docs that describe affected behavior. Bring stale instructions within scope up to date even when the current change did not cause them.
+- Verify claims against the version each document describes. Trace references back to the implementation, specs, or verification results. Check purpose, requirements, commands, outputs, defaults, and limits. Preserve conditions that affect a reader's decisions in any summaries or existing translations you update.
+- Run representative documented procedures and verify the links. Flag any outstanding checks that affect use or handoff.
 
-把相互依賴的檔案與引用當成一批。盤點用來決定查哪些項目。清理執行者負責核對用途、引用、授權、復原來源及實際操作的工作目錄。
+## Handle obsolete copies and artifacts
 
-搬移或移除舊檔的批次，先在可控制寫入的隔離副本準備及驗證。凡可能有其他人、會話或背景工具寫入的工作目錄，都當作共享目錄。只有能持續控制目標的寫入時，才可執行會讓舊路徑消失的變更。
+Group interdependent files and references into one batch. Use inventory to choose what to inspect. The person doing the cleanup checks each item's purpose, references, license, recovery source, and target working directory.
 
-Git 專案可用 [批次工具](scripts/batch.py) 從固定提交的完整樹建立候選，準備與驗證均核對原儲存庫的根目錄。先宣告本批要異動的檔案，再編輯 `candidate`。以 `verify` 的內建檢查驗證固定候選，交付指定 `run_id` 的交接包。發布前，工具核對新增或修改的 `.md` 檔的 CommonMark 相對連結與圖片。路徑消失時，也會比對未改動的 `.md` 檔，確認原先可用的相對連結仍可用。兩棵樹共用同一個解析後的專案路徑，無法確定專案內目標時停止發布。`--links` 可加查指定文件的所有相對目標。交接包記錄實際檢查範圍。原始 HTML、外部網址及錨點依實際需要另行核對。若必要驗證超出工具能力，或批次涉及未提交原狀、檔案與目錄互換、只改名稱大小寫、名稱衝突、不可攜檔名、空目錄或符號連結，改用本節的人工隔離流程。
+Prepare and verify moves or removals in an isolated copy you control. Treat any working directory that another person, session, or background tool can write to as shared. Keep control of writes throughout any operation that removes an existing path.
 
-無法控制寫入時，把已驗證的候選與同一份批次紀錄交給目標維護者。缺少可交付的材料時，回報批次階段與待辦，供接手者重新核對。
+For Git projects, the [batch tool](scripts/batch.py) builds a candidate from the full tree of a fixed commit. Both `prepare` and `verify` check the source repository root. Declare the files to change, then edit the `candidate` directory. Run the built-in checks with `verify` and hand off the package for the selected `run_id`.
 
-### 批次紀錄
+The tool checks relative CommonMark links and images in added or changed Markdown. If paths disappear, it also checks that previously working relative references in unchanged Markdown still work. It uses the same resolved project path in both trees and stops if it cannot establish a target within the project. Use `--links` to check all in-scope relative targets in an additional file. The package records what was checked. Check raw HTML, external URLs, and anchors separately when the task requires them.
 
-- 為批次指定識別碼。首次寫入目標前，把每個受影響的位置及引用的原狀、預期結果、復原來源寫進同一份本機紀錄。原狀須反映實際未提交內容，特別記下哪些位置原本不存在。包括工作目錄以外的封存目的地。資料應能由接手者依授權核對和取得。
-- 在同一份紀錄綁定原始版本或內容、驗證過的候選版本或檔案內容指紋、預期移除與封存結果，以及驗證命令、結果和會改變判斷的前提，例如實際生效的設定、工具版本或外部資料。候選或這些前提有變動時，原驗證失效。
-- 封存新檔使用本批次專屬且已確認空置的目的地。沿用既有封存時，記錄其原狀、核對內容與存取權，將其視為唯讀依賴。
+Use the manual isolation workflow below when the required checks exceed the tool's scope, or the batch needs an uncommitted baseline, file/directory swaps, case-only renames, conflicting or nonportable names, empty directories, or symlinks.
 
-| 批次階段 | 進入條件與下一步 |
+If you cannot control writes to the target, give its maintainer the verified candidate and its batch record. If any handoff material is missing, report the batch stage and what remains to be done.
+
+### Batch record
+
+- Assign a batch ID. Before the first write to the target, record the original state, expected result, and recovery source for every affected path and reference in one local record. Include actual uncommitted content, originally absent paths, and archive destinations outside the repository.
+- Tie that record to the original revision or content, the verified candidate revision or file hashes, expected removals and archives, and the checks and results. Include conditions that affect verification, such as active settings, tool versions, or external data. If the candidate or those conditions change, verify again.
+- Use a batch-specific archive destination confirmed to be empty for new archives. If reusing an archive, record its original state, verify its contents and access, and treat it as read-only.
+
+| Stage | Entry conditions and next action |
 |---|---|
-| 盤點 | 核對程式引用、人工流程、授權、原稿用途與重建方式。用途、授權、復原來源或封存位置未定時，保留該批並標明待查項目。 |
-| 準備 | 在隔離副本讓正式來源可用，更新引用與文件，再讓舊路徑不可用。依[批次紀錄](#批次紀錄)保存原狀與候選。 |
-| 已驗證 | 隔離副本呈現預定的最終狀態，固定的候選內容通過本批[收尾驗證](#驗證與收尾)，且結果與必要前提已寫入批次紀錄。驗證時只核對候選。驗證失敗或發現需修改文件時，回到準備，更新內容與紀錄後再驗證。 |
-| 套用中 | 控制目標寫入的一方核對授權、原狀、復原來源、候選內容與實際目標的驗證前提。內容或前提不符或無法確認時，回到準備階段。核對通過後，記錄「套用中」與採用的驗證紀錄；使用工具時，記下指定交接包的批次 ID、執行 ID 及清單指紋。套用及復原都用這一份紀錄。需保存的資料先從封存端確認內容與存取權，專案內的封存另驗搜尋與模型讀取的隔離，確認後才移除原路徑。 |
-| 待確認與復原 | 套用失敗、中斷、失去寫入控制、封存結果未確認，或接手時讀到「套用中」，都進入本階段。依下方的復原規則處理。 |
-| 已定案 | 在仍控制目標寫入時，核對實際目標的驗證前提仍成立，路徑、內容、引用與封存符合批次紀錄，並從實際入口驗證受影響的操作。全部通過才記錄「已定案」並清除僅供本批復原的資料。核對或驗證失敗進入待確認與復原。定案後中斷時，只核對及清除剩餘復原材料。 |
+| Inventory | Check code references, manual workflows, licenses, source material, and how to rebuild it. If purpose, license, recovery source, or archive destination is unresolved, keep the batch intact and record what needs checking. |
+| Prepare | In the isolated copy, put the authoritative source in place, update references and docs, then remove the old path. Record the original and candidate in the [batch record](#batch-record). |
+| Verified | The fixed candidate represents the intended final state and passes [final verification](#verify-and-wrap-up). Record the results and conditions. Run the checks against the candidate. If checks fail or docs need edits, return to preparation and verify again. |
+| Applying | The person who controls writes checks authorization, the original state, the recovery source, the candidate, and the verification conditions at the target. Return to preparation if any differ or cannot be confirmed. Record that application is in progress and identify the verification record. For a tool-generated handoff, record its batch ID, run ID, and manifest hash. Apply and recover from that same record. Confirm required archives are readable and accessible before removing source paths. For archives inside the project, also verify isolation from search and model reads. |
+| Confirm or recover | Enter this stage on failure, interruption, loss of write control, uncertain archive results, or when a handoff record still says application is in progress. Follow the recovery steps below. |
+| Finalized | While you still control writes, check that the verification conditions hold and that paths, contents, references, and archives match the batch record. Verify affected workflows through their actual entry points. Record finalization before clearing recovery-only material. If a check fails, move to recovery. If interrupted after finalization, check and clear the remaining recovery material. |
 
-每次接手「待確認與復原」，包括復原再中斷，都從批次紀錄逐項重查實況。封存回覆遺失時，先向封存端確認本批寫入已完成或已終止，並核對原目的地。即使暫時看不到檔案，寫入結果仍待確認時也要保留來源與復原材料。
+On every recovery attempt, including after an interruption during recovery, recheck the actual state against the batch record. If an archive operation lost its acknowledgment, confirm at the destination that the batch's write completed or ended and check the original destination state. Keep the source and recovery material while the result is uncertain, even if the archive is not visible yet.
 
-已確認為原狀的項目直接略過。能控制目標寫入且能確認是本批造成的變更，才按紀錄復原。先確認原件已可用，再清除本批新增的封存副本。查不清、寫入仍不受控或與其他編輯衝突時，保留現場及復原材料，回報待確認項目。全批確認恢復原狀後回到準備。
+Skip items already confirmed to match the original. Restore only changes attributable to this batch while you control writes. Confirm the restored original is usable before clearing any archive copy created by the batch. If the state is unclear, writes are uncontrolled, or other edits conflict, preserve the current state and recovery material and report what needs confirmation. Return to preparation once the whole batch is confirmed restored.
 
-## 六項 6S 檢查表
+## 6S checklist
 
-依本次範圍核對相關項目。
+Apply the checks relevant to the scope.
 
-| 項目 | 檢查問題 |
+| Item | What to check |
 |---|---|
-| 整理 | 無用的中間檔、過期副本與落選素材已處理？ |
-| 整頓 | 每項資訊都有固定位置與單一維護來源？ |
-| 清掃 | 失效引用與重複設定已修正？測試涵蓋要維持的行為？ |
-| 清潔 | 文件已合併重複內容、改寫過期段落、移除完成的待辦，並保留仍有效的操作、設計、限制與決策理由？ |
-| 素養 | 已沿用現有檢查？新增的規則能防止已辨認的問題復發？ |
-| 安全 | 核對絕對路徑、專案邊界、符號連結目的地、保存規則與當次授權。保護授權文件、正式來源、使用者資料與無關的未提交變更。 |
+| Sort | Unneeded intermediate files, outdated copies, and rejected assets have been dealt with. |
+| Set in order | Each piece of information has a clear home and one authoritative source. |
+| Shine | Broken references and redundant settings are fixed. Tests cover the behavior that must be preserved. |
+| Standardize | Current docs consolidate duplicates, replace stale instructions, and remove completed tasks while retaining procedures, design decisions, constraints, and rationale that still matter. |
+| Sustain | Existing checks are reused. Any new rule prevents a problem observed during the cleanup. |
+| Safety | Check absolute paths, project boundaries, symlink targets, retention requirements, and current authorization. Protect licenses, authoritative sources, user data, and unrelated uncommitted changes. |
 
-涉及測試整理時，讀 [測試 6S](references/test-cleanup.md)。
+For test cleanup, read [test cleanup](references/test-cleanup.md).
 
-## 驗證與收尾
+## Verify and wrap up
 
-- 完成[專案文件對齊](#對齊專案文件)，核對本次受影響的引用及操作。
-- 跑受影響的建置與測試，沿用既有通過條件。需要重建時，將輸出放在隔離位置。檢查失敗時定位原因，修復本次範圍內的問題。
-- 腳本可用時，以首次結果的 `base_commit` 重跑盤點，補查本次涉及的路徑與引用。
-- 清除本次驗證產生的臨時輸出、腳本與快取。
-- 回報實際改動、驗證結果，以及仍會影響使用或接手的問題。需要核對時，附上既有紀錄的位置。
+- Finish [aligning project documentation](#align-project-documentation) and verify the affected references and procedures.
+- Run affected builds and tests using the project's existing pass criteria. Put rebuild output in an isolated location. Diagnose failures and fix problems within scope.
+- If inventory is available, rerun it with the first report's `base_commit` to check affected paths and references.
+- Clear temporary verification output, scripts, and caches.
+- Report what changed, what passed, and any issue that still affects use or handoff. Link to existing records where useful.

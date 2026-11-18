@@ -1,4 +1,4 @@
 interface:
-  display_name: "專案 6S"
-  short_description: "整理程式庫、素材、文件與測試，移除無用產物並驗證受影響的操作"
-  default_prompt: "使用 $project-6s 整理目前專案，移除無用產物，更新過期文件，並驗證受影響的操作。"
+  display_name: "Project 6S"
+  short_description: "Clean up repositories, docs, assets, and tests"
+  default_prompt: "Use $project-6s to clean up this project, update outdated docs, and verify the affected workflows."

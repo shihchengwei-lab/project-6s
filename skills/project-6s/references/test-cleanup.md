@@ -1,21 +1,21 @@
-# 測試 6S
+# Test cleanup
 
-## 判斷案例用途
+## Identify what each case protects
 
-- 保留可觀察行為、失敗路徑、輸入邊界、資料相容性、型別拒絕與跨模組整合的檢查。單元測試驗證局部邏輯，整合測試驗證模組如何接合。合併或刪除前，確認仍需維持的行為由哪個案例覆蓋。
-- 如果只看測試內容難以判斷留下的案例能否抓到目標錯誤，先[實際引入該錯誤驗證](#驗證修改有效)，再移除原案例。
-- 檢查固定值是否承載相容性要求，尤其是外部格式、歷史連結、種子、序列化資料和公開 API。整理相似的非法輸入案例時，確認它們各自觸及的解析、編碼或安全邊界。
-- 優先清理逐行照抄實作來算期望值、只測測試輔助函式，或綁定無需求依據的文案與元件內部結構的案例。
+- Keep coverage for observable behavior, failure paths, input boundaries, data compatibility, type rejection, and integration across modules. Unit tests cover local logic. Integration tests cover how modules work together. Before merging or deleting a case, identify which remaining case covers the behavior that must stay.
+- If reading the remaining case leaves its ability to catch the target fault unclear, [introduce the fault and verify it fails](#verify-the-change) before removing the original case.
+- Check whether fixed values encode compatibility requirements, especially for external formats, historical links, seeds, serialized data, and public APIs. When consolidating similar invalid inputs, distinguish the parsing, encoding, or security boundary exercised by each.
+- Prioritize cases that calculate expectations by copying the implementation line by line, only exercise test helpers, or depend on wording or component internals without a requirement.
 
-## 修正假通過與污染
+## Fix false passes and test interference
 
-- 讓名稱對應實際觀察，例如「驗證聲音參數」「伺服器能產生按鈕標記」。需要驗證點擊、焦點或觸控時，從能觸發該互動的入口檢查。
-- 查找會繞過斷言或誤判通過的情況，例如空集合讓迴圈未執行、未等待非同步斷言、搜尋回傳 `-1`、過於寬鬆的真假判斷，或測試資料未走到目標分支。
-- 驗證同樣輸入能重現結果時，使用多步序列、獨立實例或需要固定的相容性樣本。模擬與搜尋使用固定輸入、明確上限和找不到情境時的失敗訊息，優先沿用真實重播或小型測試資料。
-- 共用確實重複的準備步驟，讓各案例的資料與依賴清楚可見。執行後還原替身、環境變數與時鐘，並清除臨時資源。型別拒絕案例使用既有的型別檢查入口。
+- Name tests for what they observe, such as "checks audio parameters" or "server renders button markup." Test clicks, focus, or touch through an entry point that exercises the interaction.
+- Look for ways assertions can be bypassed or pass for the wrong reason. Check loops over empty collections, async assertions that are never awaited, searches returning `-1`, loose truthiness checks, and fixtures that miss the intended branch.
+- When checking repeatability, use multi-step sequences, independent instances, or fixed compatibility fixtures as needed. Give simulations and searches fixed inputs, explicit bounds, and a failure message when the scenario is not found. Prefer a real replay or a small existing fixture.
+- Share setup that is genuinely duplicated while keeping each case's data and dependencies visible. Restore test doubles, environment variables, and clocks, and clear temporary resources. Use the project's existing type-checking entry point for type rejection cases.
 
-## 驗證修改有效
+## Verify the change
 
-先跑受影響的案例，再執行專案要求的完整檢查。發現正式程式缺陷時，保留能重現問題的案例與影響說明，依任務範圍處理。
+Run the affected cases first, then the full checks required by the project. If you find a product defect, keep the reproducing case and explain the impact. Handle the defect within the task's scope.
 
-要確認案例能抓到特定錯誤，在隔離副本引入該錯誤，例如清空選項、漏掉完成分支，或讓動畫無法結束。從副本執行測試，讓輸出也留在副本或隔離的暫存位置。確認案例由目標斷言判定失敗，再移除故障並跑一次。副本無法重現必要條件時，保留原案例並回報缺少的驗證。
+To prove a case catches a specific fault, introduce that fault in an isolated copy, such as clearing the options, skipping a completion branch, or keeping an animation running. Run the tests from that copy and keep output there or in isolated temporary storage. Confirm the intended assertion fails, then remove the fault and rerun. If the isolated copy cannot reproduce the required conditions, keep the original case and report the verification gap.
