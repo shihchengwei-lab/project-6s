@@ -7,18 +7,11 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import re
 import stat
 import subprocess
 import sys
-from urllib.parse import unquote
-
-
-DESTINATION = r"(?:<([^>\n]+)>|([^\s()<>]+))"
-INLINE_LINK = re.compile(r"\]\(\s*" + DESTINATION + r"""(?:\s+["'][^\n]*?["'])?\s*\)""")
-REFERENCE_LINK = re.compile(r"^ {0,3}\[[^\]]+\]:\s*" + DESTINATION)
-FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
-CODE_SPAN = re.compile(r"(`+)(.*?)\1")
+sys.dont_write_bytecode = True
+from markdown_paths import MarkdownPaths, MarkdownUnavailable
 
 
 def git(root, *args):
@@ -30,35 +23,18 @@ def git(root, *args):
     return result.stdout.decode("utf-8", errors="surrogateescape")
 
 
-def findings_for_links(root, file, text, changed):
-    fence = ""
-    for number, line in enumerate(text.splitlines(), 1):
-        marker = FENCE.match(line)
-        if fence:
-            if marker and marker[1].startswith(fence) and not marker[2].strip():
-                fence = ""
+def findings_for_links(root, file, text, changed, markdown):
+    document = file.relative_to(root).as_posix()
+    for number, resolved in markdown.project_targets(document, text):
+        target = (root / resolved.path).resolve()
+        if not target.is_relative_to(root):
             continue
-        if marker:
-            fence = marker[1]
-            continue
-        line = CODE_SPAN.sub("", line)
-        links = list(INLINE_LINK.finditer(line))
-        reference = REFERENCE_LINK.match(line)
-        if reference:
-            links.append(reference)
-        for link in links:
-            destination = link[1] or link[2]
-            path = unquote(re.split(r"[?#]", destination, maxsplit=1)[0])
-            if not path or path.startswith(("/", "\\")) or ":" in path:
-                continue
-            target = (file.parent / path).resolve()
-            if not target.is_relative_to(root):
-                continue
-            relative = target.relative_to(root).as_posix()
-            if not target.exists():
-                yield finding("missing_link", file.relative_to(root).as_posix(), relative, number)
-            elif relative in changed:
-                yield finding("changed_reference", file.relative_to(root).as_posix(), relative, number)
+        relative = target.relative_to(root).as_posix()
+        kind = "directory" if target.is_dir() else "file" if target.is_file() else None
+        if not resolved.matches_kind(kind):
+            yield finding("missing_link", document, relative, number)
+        elif relative in changed:
+            yield finding("changed_reference", document, relative, number)
 
 
 def finding(kind, file, evidence, line=None):
@@ -90,6 +66,11 @@ class FileStamp:
     def from_stat(cls, info):
         return cls((info.st_dev, info.st_ino), info.st_mode, info.st_size, info.st_mtime_ns)
 
+    def matches_open_file(self, opened):
+        return (self.identity, self.size, self.modified_ns) == (
+            opened.identity, opened.size, opened.modified_ns
+        )
+
 
 def observe_file(file):
     try:
@@ -114,14 +95,14 @@ def file_content(file, expected, markdown, hash_content):
         raise ScanChanged(f"{file.name} changed before reading")
     with file.open("rb") as stream:
         before = os.fstat(stream.fileno())
-        if FileStamp.from_stat(before) != expected:
+        if not expected.matches_open_file(FileStamp.from_stat(before)):
             raise ScanChanged(f"{file.name} was replaced before reading")
         content = stream.read() if markdown else None
         digest = None
         if hash_content:
             digest = (hashlib.sha256(content) if markdown else hashlib.file_digest(stream, "sha256")).hexdigest()
         after = os.fstat(stream.fileno())
-        if FileStamp.from_stat(after) != expected or before.st_ctime_ns != after.st_ctime_ns:
+        if FileStamp.from_stat(after) != FileStamp.from_stat(before) or before.st_ctime_ns != after.st_ctime_ns:
             raise ScanChanged(f"{file.name} changed while reading")
     if observe_file(file) != ("regular", expected):
         raise ScanChanged(f"{file.name} changed after reading")
@@ -150,6 +131,13 @@ def inventory(root, base):
 
 def file_findings(root, names, changed):
     files = {name: observe_file(root / name) for name in sorted(names)}
+    markdown = None
+    if any(kind == "regular" and Path(name).suffix.lower() == ".md"
+           for name, (kind, _) in files.items()):
+        try:
+            markdown = MarkdownPaths()
+        except MarkdownUnavailable as error:
+            yield finding("link_check_unavailable", ".", str(error))
     by_size = defaultdict(int)
     for kind, evidence in files.values():
         if kind == "regular":
@@ -160,19 +148,19 @@ def file_findings(root, names, changed):
             yield finding(kind, name, evidence)
             continue
         file = root / name
-        markdown = file.suffix.lower() == ".md"
+        check_links = markdown is not None and file.suffix.lower() == ".md"
         hash_content = by_size[evidence.size] > 1
-        if not (markdown or hash_content):
+        if not (check_links or hash_content):
             continue
         try:
-            content, digest = file_content(file, evidence, markdown, hash_content)
+            content, digest = file_content(file, evidence, check_links, hash_content)
             if digest is not None:
                 by_digest[digest].append(name)
-            if markdown:
-                yield from findings_for_links(root, file, content.decode("utf-8-sig"), changed)
+            if check_links:
+                yield from findings_for_links(root, file, content.decode("utf-8-sig"), changed, markdown)
         except ScanChanged as error:
             yield finding("changed_during_read", name, str(error))
-        except (OSError, UnicodeError, RuntimeError) as error:
+        except (OSError, ValueError, RuntimeError) as error:
             yield finding("unreadable", name, str(error))
     for group in by_digest.values():
         if len(group) > 1:
